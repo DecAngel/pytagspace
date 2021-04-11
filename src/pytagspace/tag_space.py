@@ -11,7 +11,7 @@ TagNameType = str
 TagValueType = Union[int, float, str, bool]
 TagValueIterableType = Union[List[TagValueType], Tuple[TagValueType, ...]]
 TagValueFunctionType = Callable[[TagValueType], bool]
-TagObjectType = Hashable
+TagObjectType = Union[Hashable, Callable]
 
 
 def is_tag_name(name) -> bool:
@@ -74,7 +74,7 @@ class Tag:
             for obj, value in zip(objs, tag_value):
                 self._tag(obj, value)
         else:
-            raise ValueError('tag_value ')
+            raise ValueError('tag_value must be int, float, str, bool, or a list/tuple containing them')
 
     def find_objs(
             self,
@@ -99,7 +99,8 @@ class Tag:
                 [self._mapping[value] for value in self._mapping.keys() if tag_value(value)]
             ).copy()
         else:
-            raise ValueError()
+            raise ValueError('tag_value must be int, float, str, bool, '
+                             'or a list/tuple containing them, or a check function')
 
     def find_tag(self, *objs: TagObjectType) -> Optional[TagValueType]:
         """Find tag that share by all ``objs``.
@@ -135,7 +136,8 @@ class Tag:
             for value in values:
                 self._remove_tag(value)
         else:
-            raise ValueError()
+            raise ValueError('tag_value must be int, float, str, bool, '
+                             'or a list/tuple containing them, or a check function')
 
     def remove_objs(self, *objs: TagObjectType) -> None:
         """Remove ``objs``.
@@ -314,4 +316,3 @@ if __name__ == '__main__':
     sp.remove_objs(2, 13)
     print(sp.find_objs(fib=True, prime=True))
     print(sp.find_tags(1, 5))
-    print(sp['pref']['like'])
