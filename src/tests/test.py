@@ -1,5 +1,8 @@
 import unittest
 
+from datetime import timedelta
+from dataclasses import dataclass
+
 from src.pytagspace import TagSpace
 import src.pytagspace as pts
 
@@ -61,6 +64,60 @@ class TSTestCase(unittest.TestCase):
         self.assertEqual(len(s), 2)
         for e in s:
             self.assertEqual(e(), 2)
+
+    def test_movie(self):
+        pts.clear()
+
+        @dataclass(frozen=True)
+        class Movie:
+            name: str
+            duration: timedelta
+            year: int
+
+        movies = [
+            Movie(
+                name='Thunder Force',
+                duration=timedelta(hours=1, minutes=45),
+                year=2021
+            ),
+            Movie(
+                name='Once Upon A Time...In Hollywood',
+                duration=timedelta(hours=2, minutes=40),
+                year=2019
+            ),
+            Movie(
+                name='Run',
+                duration=timedelta(hours=1, minutes=39),
+                year=2020
+            )
+        ]
+
+        for movie in movies:
+            pts.tag(movie, duration=movie.duration, year=movie.year)
+        self.assertSetEqual(
+            pts.find_objs(duration=lambda x: x < timedelta(hours=2)),
+            {movies[0], movies[2]}
+        )
+        # Movies under 2 hours: Thunder Force and Run
+
+        pts.remove_objs(movies[0])
+
+        self.assertSetEqual(
+            pts.find_objs(duration=lambda x: x < timedelta(hours=2)),
+            {movies[2]}
+        )
+        # Movies under 2 hours: Run
+
+        pts.remove_tags('duration', year=2019)
+
+        self.assertSetEqual(
+            pts.find_objs(duration=lambda x: x < timedelta(hours=2)),
+            set()
+        )
+        self.assertSetEqual(
+            pts.find_objs(year=2019),
+            set()
+        )
 
 
 if __name__ == '__main__':

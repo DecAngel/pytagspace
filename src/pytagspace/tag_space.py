@@ -4,12 +4,11 @@ This module implements the TagSpace, Tag
 """
 
 import functools
-from collections import defaultdict
-from typing import Dict, Optional, Union, Callable, Set, List, Tuple, Hashable
+import collections
+from typing import Dict, Optional, Union, Callable, Set, Hashable, Mapping, Iterator
 
 TagNameType = str
-TagValueType = Union[int, float, str, bool]
-TagValueIterableType = Union[List[TagValueType], Tuple[TagValueType, ...]]
+TagValueType = Union[Hashable]
 TagValueFunctionType = Callable[[TagValueType], bool]
 TagObjectType = Union[Hashable, Callable]
 
@@ -19,32 +18,32 @@ def is_tag_name(name) -> bool:
 
 
 def is_tag_value(value) -> bool:
-    return isinstance(value, (int, float, str, bool))
-
-
-def is_tag_value_iterable(it) -> bool:
-    return isinstance(it, (list, tuple)) and functools.reduce(
-        lambda x, y: x and y, [isinstance(tag_value, (int, float, str, bool)) for tag_value in it]
-    )
+    return isinstance(value, Hashable)
 
 
 def is_tag_value_function(func) -> bool:
-    return callable(func)
+    return isinstance(func, Callable)
 
 
-class Tag:
+class Tag(Mapping[TagValueType, Set[TagObjectType]]):
     """A mapping from ``tag_value`` to ``tag_set``, where ``tag_set``s are mutually exclusive
 
     """
 
     def __init__(self):
-        self._mapping: Dict[TagValueType, Set[TagObjectType]] = defaultdict(set)
+        self._mapping: Dict[TagValueType, Set[TagObjectType]] = collections.defaultdict(set)
         self._reverse_mapping: Dict[TagObjectType, TagValueType] = {}
 
-    def __getitem__(self, item: Union[TagValueType, TagValueIterableType, TagValueFunctionType]) -> Set[TagObjectType]:
+    def __len__(self) -> int:
+        return len(self._mapping)
+
+    def __iter__(self) -> Iterator[TagValueType]:
+        return self._mapping
+
+    def __getitem__(self, item: Union[TagValueType, TagValueFunctionType]) -> Set[TagObjectType]:
         return self.find_objs(item)
 
-    def __delitem__(self, key: Union[TagValueType, TagValueIterableType, TagValueFunctionType]) -> None:
+    def __delitem__(self, key: Union[TagValueType, TagValueFunctionType]) -> None:
         self.remove_tags(key)
 
     def _tag(self, obj: TagObjectType, tag_value: TagValueType):
@@ -60,47 +59,38 @@ class Tag:
                 del self._reverse_mapping[obj]
             del self._mapping[tag_value]
 
-    def tag(self, *objs: TagObjectType, tag_value: Union[TagValueType, TagValueIterableType]) -> None:
+    def tag(self, *objs: TagObjectType, tag_value: TagValueType) -> None:
         """Mark ``objs`` with ``tag_value``.
 
         :param objs: objects to mark
-        :param tag_value: a tag value or a list/tuple containing tag values that corresponds with ``objs``
+        :param tag_value: a *Hashable* tag value
         :return: None
         """
         if is_tag_value(tag_value):
             for obj in objs:
                 self._tag(obj, tag_value)
-        elif is_tag_value_iterable(tag_value):
-            for obj, value in zip(objs, tag_value):
-                self._tag(obj, value)
         else:
-            raise ValueError('tag_value must be int, float, str, bool, or a list/tuple containing them')
+            raise ValueError('tag_value must be a Hashable')
 
     def find_objs(
             self,
-            tag_value: Union[TagValueType, TagValueIterableType, TagValueFunctionType]
+            tag_value: Union[TagValueType, TagValueFunctionType]
     ) -> Set[TagObjectType]:
         """Find objects with tag value qualified by ``tag_value``.
 
-        :param tag_value: a tag value, or a list/tuple of qualified tag values,
-            or a condition function that checks each tag value if it is qualified
+        :param tag_value: a *Hashable* tag value, or a *Callable* that checks each tag value if it is qualified
         :return: the set of qualified objects
         """
-        if is_tag_value(tag_value):
+        if is_tag_value_function(tag_value):
+            objs = [self._mapping[value] for value in self._mapping.keys() if tag_value(value)]
+            return set() if len(objs) == 0 else functools.reduce(
+                lambda x, y: x.union(y),
+                objs
+            ).copy()
+        elif is_tag_value(tag_value):
             return self._mapping[tag_value].copy()
-        elif is_tag_value_iterable(tag_value):
-            return functools.reduce(
-                lambda x, y: x.union(y),
-                [self._mapping[value] for value in tag_value]
-            ).copy()
-        elif is_tag_value_function(tag_value):
-            return functools.reduce(
-                lambda x, y: x.union(y),
-                [self._mapping[value] for value in self._mapping.keys() if tag_value(value)]
-            ).copy()
         else:
-            raise ValueError('tag_value must be int, float, str, bool, '
-                             'or a list/tuple containing them, or a check function')
+            raise ValueError('tag_value must be a Hashable, an Iterable or a Callable')
 
     def find_tag(self, *objs: TagObjectType) -> Optional[TagValueType]:
         """Find tag that share by all ``objs``.
@@ -116,28 +106,23 @@ class Tag:
             ]
         )
 
-    def remove_tags(self, tag_value: Union[TagValueType, TagValueIterableType, TagValueFunctionType]) -> None:
+    def remove_tags(self, tag_value: Union[TagValueType, TagValueFunctionType]) -> None:
         """Remove tags qualified by ``tag_value``.
 
-        :param tag_value: a tag value, or a list/tuple of qualified tag values,
-            or a condition function that checks each tag value if it is qualified
+        :param tag_value: a *Hashable* tag value, or a *Callable* that checks each tag value if it is qualified
         :return: None
         """
-        if is_tag_value(tag_value):
-            self._remove_tag(tag_value)
-        elif is_tag_value_iterable(tag_value):
-            for value in tag_value:
-                self._remove_tag(value)
-        elif is_tag_value_function(tag_value):
+        if is_tag_value_function(tag_value):
             values = []
             for value in self._mapping.keys():
                 if tag_value(value):
                     values.append(value)
             for value in values:
                 self._remove_tag(value)
+        elif is_tag_value(tag_value):
+            self._remove_tag(tag_value)
         else:
-            raise ValueError('tag_value must be int, float, str, bool, '
-                             'or a list/tuple containing them, or a check function')
+            raise ValueError('tag_value must be a Hashable, an Iterable or a Callable')
 
     def remove_objs(self, *objs: TagObjectType) -> None:
         """Remove ``objs``.
@@ -199,7 +184,7 @@ class TagSpace:
         if is_strict:
             self._mapping: Dict[TagNameType, Tag] = {}
         else:
-            self._mapping: Dict[TagNameType, Tag] = defaultdict(Tag)
+            self._mapping: Dict[TagNameType, Tag] = collections.defaultdict(Tag)
 
     def __getitem__(self, item: TagNameType):
         return self._mapping[item]
@@ -207,12 +192,11 @@ class TagSpace:
     def __delitem__(self, key: TagNameType):
         self.remove_tags(key)
 
-    def tag(self, *objs: TagObjectType, **kw_tags: Union[TagValueType, TagValueIterableType]) -> None:
+    def tag(self, *objs: TagObjectType, **kw_tags: TagValueType) -> None:
         """Mark ``objs`` with tag name = tag value in ``kw_tags``.
 
         :param objs: objects to mark
-        :param kw_tags: keyword pairs containing tag name = tag value,
-            or tag name = list/tuple containing tag values that corresponds with ``objs``
+        :param kw_tags: keyword pairs containing tag name = tag value
         :return: None
         """
         for tag_name, tag_value in kw_tags.items():
@@ -221,18 +205,18 @@ class TagSpace:
 
     def find_objs(
             self,
-            **kw_tags: Union[TagValueType, TagValueIterableType, TagValueFunctionType]
+            **kw_tags: Union[TagValueType, TagValueFunctionType]
     ) -> Set[TagObjectType]:
         """Find objects with tag qualified by ``tag_value``.
 
-        :param kw_tags: keyword pairs containing tag name = tag value,
-            or tag name = list/tuple of qualified tag values,
+        :param kw_tags: keyword pairs containing tag name = tag value
             or tag name = condition function that checks each tag value if it is qualified
         :return: the set of qualified objects
         """
-        return functools.reduce(
+        objs = [self._mapping[tag_name].find_objs(tag_value=tag_value) for tag_name, tag_value in kw_tags.items()]
+        return set() if len(objs) == 0 else functools.reduce(
             lambda x, y: x.intersection(y),
-            [self._mapping[tag_name].find_objs(tag_value=tag_value) for tag_name, tag_value in kw_tags.items()]
+            objs,
         )
 
     def find_tags(self, *objs: TagObjectType) -> Dict[TagNameType, TagValueType]:
@@ -250,13 +234,12 @@ class TagSpace:
     def remove_tags(
             self,
             *tag_names: TagNameType,
-            **kw_tags: Union[TagValueType, TagValueIterableType, TagValueFunctionType]
+            **kw_tags: Union[TagValueType, TagValueFunctionType]
     ) -> None:
         """Remove tags with name in ``tag_names``, or with value qualified by ``kw_tags``.
 
         :param tag_names: tags to remove
         :param kw_tags: keyword pairs containing tag name = tag value,
-            or tag name = list/tuple of qualified tag values,
             or tag name = condition function that checks each tag value if it is qualified
         :return: None
         """
@@ -300,19 +283,3 @@ class TagSpace:
         """
         return '\n'.join(
             '{}:\n{}'.format(tag_name, tag.get_content_string()) for tag_name, tag in self._mapping.items())
-
-
-if __name__ == '__main__':
-    sp = TagSpace()
-    sp.tag(1, 1, 2, 3, 5, 8, 13, fib=True)
-    sp.tag(2, 3, 5, 7, 11, 13, 17, 19, prime=True)
-    sp.tag(1, 3, 5, 7, 9, 11, 13, 15, 17, 19, odd=True)
-    sp.tag(3, 6, 9, 12, 15, 18, triple=True)
-    sp.tag(1, 2, 5, 8, 9, pref='like')
-    sp.tag(4, 10, pref='dislike')
-    for i in range(1, 20):
-        sp.tag(i, value=i)
-    print(sp.find_objs(fib=True, prime=True, value=lambda x: x < 10))
-    sp.remove_objs(2, 13)
-    print(sp.find_objs(fib=True, prime=True))
-    print(sp.find_tags(1, 5))

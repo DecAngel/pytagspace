@@ -2,7 +2,19 @@
 
 A utility package that marks objects and finds them with tags.
 
-## Examples:
+## Description
+This package is a simple tool to organize different objects by tags.
+Use ``TagSpace`` to tag the objects with ``tag_name -> tag_value`` pairs.
++ This package keeps a mapping By keeping strong references to each object, 
+  this package may not be suitable for storing large objects 
+
+## Installation
++ Install via pip
+```commandline
+pip install -i https://test.pypi.org/simple/ pytagspace-DecAngel
+```
+
+## Examples
 + Tag objects and find them
 ```python
 import pytagspace as pts
@@ -40,7 +52,7 @@ print(pts.find_tags(2))
 ```python
 from pytagspace import TagSpace
 
-# create a space instead of the default one
+# create a TagSpace instance instead of the default one
 space = TagSpace()
 
 # use decorator tag
@@ -70,3 +82,56 @@ for f in space.find_objs(is_function=False):
     print(f()())
 # 1, 2
 ```
+
++ Tag replacement and removal
+```python
+import pytagspace as pts
+from datetime import timedelta
+from dataclasses import dataclass
+
+@dataclass
+class Movie:
+    name: str
+    duration: timedelta
+    year: int
+
+movies = [
+    Movie(
+        name='Thunder Force',
+        duration=timedelta(hours=1, minutes=45), 
+        year=2021
+    ),
+    Movie(
+        name='Once Upon A Time...In Hollywood',
+        duration=timedelta(hours=2, minutes=40),
+        year=2019
+    ),
+    Movie(
+        name='Run',
+        duration=timedelta(hours=1, minutes=39),
+        year=2020
+    )
+]
+
+for movie in movies:
+  pts.tag(movie, duration=movie.duration, year=movie.year)
+
+print(pts.find_objs(duration=lambda x: x<timedelta(hours=2)))
+# Movies under 2 hours: Thunder Force and Run
+
+pts.remove_objs(movies[0])
+
+print(pts.find_objs(duration=lambda x: x<timedelta(hours=2)))
+# Movies under 2 hours: Run
+
+pts.remove_tags('duration', year=2019)
+print(pts.find_objs(duration=lambda x: x < timedelta(hours=2)))
+# set()  # Empty set
+
+print(pts.find_objs(year=2019))
+# set() # Empty set
+```
+
+## Future improvements
++ Store objects using ``weakref``
++ 
