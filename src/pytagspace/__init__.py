@@ -1,4 +1,4 @@
-from .tag_space import TagSpace, Tag
+from .tag_space import TagSpace, Tag, TagValueFilter
 __default = TagSpace()
 tag = __default.tag
 tag_decorator = __default.tag_decorator

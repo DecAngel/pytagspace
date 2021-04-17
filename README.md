@@ -134,4 +134,4 @@ print(pts.find_objs(year=2019))
 
 ## Future improvements
 + Store objects using ``weakref``
-+ 
++ Store objects that is not hashable(``find_tags`` and ``remove_objs`` will be unavailable) 

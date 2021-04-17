@@ -5,28 +5,48 @@ This module implements the TagSpace, Tag
 
 import functools
 import collections
-from typing import Dict, Optional, Union, Callable, Set, Hashable, Mapping, Iterator
+from typing import Dict, Optional, Union, Callable, Set, Hashable, Mapping, Iterator, Type
+
 
 TagNameType = str
 TagValueType = Union[Hashable]
-TagValueFunctionType = Callable[[TagValueType], bool]
 TagObjectType = Union[Hashable, Callable]
 
 
+class TagValueFilter:
+    """A wrapper of function that select tag values.
+
+    """
+    def __init__(self, function: Callable[[TagValueType], bool]):
+        self._func = function
+
+    def __call__(self, value: TagValueType) -> bool:
+        return self._func(value)
+
+
 def is_tag_name(name) -> bool:
+    """Identify if ``name`` is a valid tag name.
+
+    """
     return isinstance(name, str) and not name.startswith('_')
 
 
 def is_tag_value(value) -> bool:
+    """Identify if ``value`` is a valid tag value.
+
+    """
     return isinstance(value, Hashable)
 
 
 def is_tag_value_function(func) -> bool:
-    return isinstance(func, Callable)
+    """Identify if ``func`` is a valid tag value selection function.
+
+    """
+    return isinstance(func, TagValueFilter)
 
 
 class Tag(Mapping[TagValueType, Set[TagObjectType]]):
-    """A mapping from ``tag_value`` to ``tag_set``, where ``tag_set``s are mutually exclusive
+    """A mapping from ``tag_value`` to ``tag_set``, where ``tag_set``s are mutually exclusive.
 
     """
 
@@ -40,10 +60,10 @@ class Tag(Mapping[TagValueType, Set[TagObjectType]]):
     def __iter__(self) -> Iterator[TagValueType]:
         return self._mapping
 
-    def __getitem__(self, item: Union[TagValueType, TagValueFunctionType]) -> Set[TagObjectType]:
+    def __getitem__(self, item: Union[TagValueType, TagValueFilter]) -> Set[TagObjectType]:
         return self.find_objs(item)
 
-    def __delitem__(self, key: Union[TagValueType, TagValueFunctionType]) -> None:
+    def __delitem__(self, key: Union[TagValueType, TagValueFilter]) -> None:
         self.remove_tags(key)
 
     def _tag(self, obj: TagObjectType, tag_value: TagValueType):
@@ -74,7 +94,7 @@ class Tag(Mapping[TagValueType, Set[TagObjectType]]):
 
     def find_objs(
             self,
-            tag_value: Union[TagValueType, TagValueFunctionType]
+            tag_value: Union[TagValueType, TagValueFilter]
     ) -> Set[TagObjectType]:
         """Find objects with tag value qualified by ``tag_value``.
 
@@ -106,7 +126,7 @@ class Tag(Mapping[TagValueType, Set[TagObjectType]]):
             ]
         )
 
-    def remove_tags(self, tag_value: Union[TagValueType, TagValueFunctionType]) -> None:
+    def remove_tags(self, tag_value: Union[TagValueType, TagValueFilter]) -> None:
         """Remove tags qualified by ``tag_value``.
 
         :param tag_value: a *Hashable* tag value, or a *Callable* that checks each tag value if it is qualified
@@ -175,16 +195,24 @@ class Tag(Mapping[TagValueType, Set[TagObjectType]]):
         ])
 
 
+class HashableTag(Tag):
+    """A *Reversible* mapping from ``tag_value`` to ``tag_set``, where ``tag_set``s are mutually exclusive.
+
+    Subclass of ``Tag`` that has ``find_tags`` and ``remove_objs``.
+
+    """
+
+
 class TagSpace:
     """A mapping from ``tag_name`` to ``Tag``
 
     """
 
-    def __init__(self, is_strict: bool = False):
+    def __init__(self, is_strict: bool = False, default_tag: Type[Tag] = Tag):
         if is_strict:
-            self._mapping: Dict[TagNameType, Tag] = {}
+            self._mapping: Dict[TagNameType, default_tag] = {}
         else:
-            self._mapping: Dict[TagNameType, Tag] = collections.defaultdict(Tag)
+            self._mapping: Dict[TagNameType, default_tag] = collections.defaultdict(default_tag)
 
     def __getitem__(self, item: TagNameType):
         return self._mapping[item]
@@ -205,7 +233,7 @@ class TagSpace:
 
     def find_objs(
             self,
-            **kw_tags: Union[TagValueType, TagValueFunctionType]
+            **kw_tags: Union[TagValueType, TagValueFilter]
     ) -> Set[TagObjectType]:
         """Find objects with tag qualified by ``tag_value``.
 
@@ -234,7 +262,7 @@ class TagSpace:
     def remove_tags(
             self,
             *tag_names: TagNameType,
-            **kw_tags: Union[TagValueType, TagValueFunctionType]
+            **kw_tags: Union[TagValueType, TagValueFilter]
     ) -> None:
         """Remove tags with name in ``tag_names``, or with value qualified by ``kw_tags``.
 
