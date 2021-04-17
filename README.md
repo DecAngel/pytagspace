@@ -16,7 +16,7 @@ Use ``TagSpace`` to tag the objects with ``tag_name = tag_value`` pairs.
 ## Installation
 + Install via pip
 ```commandline
-pip install -i https://test.pypi.org/simple/ pytagspace-DecAngel
+pip install pytagspace
 ```
 
 ## Examples
