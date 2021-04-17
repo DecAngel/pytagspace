@@ -4,9 +4,14 @@ A utility package that marks objects and finds them with tags.
 
 ## Description
 This package is a simple tool to organize different objects by tags.
-Use ``TagSpace`` to tag the objects with ``tag_name -> tag_value`` pairs.
-+ This package keeps a mapping By keeping strong references to each object, 
-  this package may not be suitable for storing large objects 
+Use ``TagSpace`` to tag the objects with ``tag_name = tag_value`` pairs.
+### Note
++ ``TagSpace`` ``Tag`` keep strong references to the tagged objects and
+  therefore could use large memory if they are not removed explicitly. 
+  Use ``remove_objs`` to delete them.
++ The tagged objects and tag value must be *Hashable*.
++ The name of each tag must not start with '_'.
++ Each object can only have one tag value under each tag.
 
 ## Installation
 + Install via pip
@@ -83,7 +88,7 @@ for f in space.find_objs(is_function=False):
 # 1, 2
 ```
 
-+ Tag replacement and removal
++ Tag removal
 ```python
 import pytagspace as pts
 from datetime import timedelta

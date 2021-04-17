@@ -5,12 +5,12 @@ This module implements the TagSpace, Tag
 
 import functools
 import collections
-from typing import Dict, Optional, Union, Callable, Set, Hashable, Mapping, Iterator, Type
+from typing import Dict, Optional, Union, Callable, Set, Hashable, Mapping, Iterator, Type, Any
 
 
 TagNameType = str
-TagValueType = Union[Hashable]
-TagObjectType = Union[Hashable, Callable]
+TagValueType = Hashable
+TagObjectType = Any
 
 
 class TagValueFilter:
@@ -24,29 +24,38 @@ class TagValueFilter:
         return self._func(value)
 
 
-def is_tag_name(name) -> bool:
+def is_tag_name(name: TagNameType) -> bool:
     """Identify if ``name`` is a valid tag name.
 
     """
     return isinstance(name, str) and not name.startswith('_')
 
 
-def is_tag_value(value) -> bool:
+def is_tag_value(value: TagValueType) -> bool:
     """Identify if ``value`` is a valid tag value.
 
     """
     return isinstance(value, Hashable)
 
 
-def is_tag_value_function(func) -> bool:
+def is_tag_value_function(func: TagValueFilter) -> bool:
     """Identify if ``func`` is a valid tag value selection function.
 
     """
     return isinstance(func, TagValueFilter)
 
 
+def is_tag_obj_hashable(obj: TagObjectType) -> bool:
+    """Identify if ``obj`` is a hashable tag object
+
+    """
+    return isinstance(obj, Hashable)
+
+
 class Tag(Mapping[TagValueType, Set[TagObjectType]]):
-    """A mapping from ``tag_value`` to ``tag_set``, where ``tag_set``s are mutually exclusive.
+    """A *Reversible* mapping from ``tag_value`` to ``tag_object``s.
+
+    The ``tag_value`` and ``tag_object``s must be *Hashable*, each ``tag_objects`` can only have one ``tag_value``.
 
     """
 
@@ -67,6 +76,11 @@ class Tag(Mapping[TagValueType, Set[TagObjectType]]):
         self.remove_tags(key)
 
     def _tag(self, obj: TagObjectType, tag_value: TagValueType):
+        if not is_tag_obj_hashable(obj):
+            if hasattr(obj, '__repr__') or hasattr(obj, '__str__'):
+                raise ValueError('obj {} must be *Hashable*.'.format(obj))
+            else:
+                raise ValueError('obj must be *Hashable*.')
         if obj in self._reverse_mapping:
             obj_tag_value = self._reverse_mapping[obj]
             self._mapping[obj_tag_value].remove(obj)
@@ -81,6 +95,8 @@ class Tag(Mapping[TagValueType, Set[TagObjectType]]):
 
     def tag(self, *objs: TagObjectType, tag_value: TagValueType) -> None:
         """Mark ``objs`` with ``tag_value``.
+
+        If ``obj`` is already tagged, overwrite the tag. (Each ``obj`` can only have one ``tag_value``)
 
         :param objs: objects to mark
         :param tag_value: a *Hashable* tag value
@@ -110,13 +126,13 @@ class Tag(Mapping[TagValueType, Set[TagObjectType]]):
         elif is_tag_value(tag_value):
             return self._mapping[tag_value].copy()
         else:
-            raise ValueError('tag_value must be a Hashable, an Iterable or a Callable')
+            raise ValueError('tag_value must be a Hashable or a Callable')
 
     def find_tag(self, *objs: TagObjectType) -> Optional[TagValueType]:
-        """Find tag that share by all ``objs``.
+        """Find tag value that shared by all ``objs``.
 
-        :param objs: objects to find tag with
-        :return: the tag value or None if ``objs`` don't share the same tag
+        :param objs: objects to find tag value with
+        :return: the tag value, or None if ``objs`` don't share the same tag
         """
         return functools.reduce(
             lambda x, y: x if x == y else None,
@@ -142,7 +158,7 @@ class Tag(Mapping[TagValueType, Set[TagObjectType]]):
         elif is_tag_value(tag_value):
             self._remove_tag(tag_value)
         else:
-            raise ValueError('tag_value must be a Hashable, an Iterable or a Callable')
+            raise ValueError('tag_value must be a Hashable or a Callable')
 
     def remove_objs(self, *objs: TagObjectType) -> None:
         """Remove ``objs``.
@@ -195,14 +211,6 @@ class Tag(Mapping[TagValueType, Set[TagObjectType]]):
         ])
 
 
-class HashableTag(Tag):
-    """A *Reversible* mapping from ``tag_value`` to ``tag_set``, where ``tag_set``s are mutually exclusive.
-
-    Subclass of ``Tag`` that has ``find_tags`` and ``remove_objs``.
-
-    """
-
-
 class TagSpace:
     """A mapping from ``tag_name`` to ``Tag``
 
@@ -213,6 +221,7 @@ class TagSpace:
             self._mapping: Dict[TagNameType, default_tag] = {}
         else:
             self._mapping: Dict[TagNameType, default_tag] = collections.defaultdict(default_tag)
+        self._default_tag = default_tag
 
     def __getitem__(self, item: TagNameType):
         return self._mapping[item]
@@ -249,6 +258,8 @@ class TagSpace:
 
     def find_tags(self, *objs: TagObjectType) -> Dict[TagNameType, TagValueType]:
         """Find every tag name = tag value pair that share by all ``objs``.
+
+        This function will raise
 
         :param objs: objects to find tag with
         :return: the dict containing tag name = tag value pair
