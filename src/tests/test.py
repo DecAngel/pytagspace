@@ -95,7 +95,7 @@ class TSTestCase(unittest.TestCase):
         for movie in movies:
             pts.tag(movie, duration=movie.duration, year=movie.year)
         self.assertSetEqual(
-            pts.find_objs(duration=pts.TagValueFilter(lambda x: x < timedelta(hours=2))),
+            pts.find_objs(duration=pts.Filter(lambda x: x < timedelta(hours=2))),
             {movies[0], movies[2]}
         )
         # Movies under 2 hours: Thunder Force and Run
@@ -103,7 +103,7 @@ class TSTestCase(unittest.TestCase):
         pts.remove_objs(movies[0])
 
         self.assertSetEqual(
-            pts.find_objs(duration=pts.TagValueFilter(lambda x: x < timedelta(hours=2))),
+            pts.find_objs(duration=pts.Filter(lambda x: x < timedelta(hours=2))),
             {movies[2]}
         )
         # Movies under 2 hours: Run
@@ -111,7 +111,7 @@ class TSTestCase(unittest.TestCase):
         pts.remove_tags('duration', year=2019)
 
         self.assertSetEqual(
-            pts.find_objs(duration=pts.TagValueFilter(lambda x: x < timedelta(hours=2))),
+            pts.find_objs(duration=pts.Filter(lambda x: x < timedelta(hours=2))),
             set()
         )
         self.assertSetEqual(

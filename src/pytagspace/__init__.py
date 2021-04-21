@@ -1,4 +1,4 @@
-from .tag_space import TagSpace, Tag, TagValueFilter
+from .tag_space import TagSpace, Tag, Filter
 
 
 __default = TagSpace()

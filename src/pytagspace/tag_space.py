@@ -13,7 +13,7 @@ TagValueType = Hashable
 TagObjectType = Any
 
 
-class TagValueFilter:
+class Filter:
     """A wrapper of function that select tag values.
 
     """
@@ -22,6 +22,9 @@ class TagValueFilter:
 
     def __call__(self, value: TagValueType) -> bool:
         return self._func(value)
+
+
+TagValueFilter = Filter
 
 
 def is_tag_name(name: TagNameType) -> bool:
@@ -38,11 +41,11 @@ def is_tag_value(value: TagValueType) -> bool:
     return isinstance(value, Hashable)
 
 
-def is_tag_value_function(func: TagValueFilter) -> bool:
+def is_tag_value_function(func: Filter) -> bool:
     """Identify if ``func`` is a valid tag value selection function.
 
     """
-    return isinstance(func, TagValueFilter)
+    return isinstance(func, Filter)
 
 
 def is_tag_obj_hashable(obj: TagObjectType) -> bool:
@@ -69,10 +72,10 @@ class Tag(Mapping[TagValueType, Set[TagObjectType]]):
     def __iter__(self) -> Iterator[TagValueType]:
         return self._mapping
 
-    def __getitem__(self, item: Union[TagValueType, TagValueFilter]) -> Set[TagObjectType]:
+    def __getitem__(self, item: Union[TagValueType, Filter]) -> Set[TagObjectType]:
         return self.find_objs(item)
 
-    def __delitem__(self, key: Union[TagValueType, TagValueFilter]) -> None:
+    def __delitem__(self, key: Union[TagValueType, Filter]) -> None:
         self.remove_tags(key)
 
     def _tag(self, obj: TagObjectType, tag_value: TagValueType):
@@ -110,7 +113,7 @@ class Tag(Mapping[TagValueType, Set[TagObjectType]]):
 
     def find_objs(
             self,
-            tag_value: Union[TagValueType, TagValueFilter]
+            tag_value: Union[TagValueType, Filter]
     ) -> Set[TagObjectType]:
         """Find objects with tag value qualified by ``tag_value``.
 
@@ -142,7 +145,7 @@ class Tag(Mapping[TagValueType, Set[TagObjectType]]):
             ]
         )
 
-    def remove_tags(self, tag_value: Union[TagValueType, TagValueFilter]) -> None:
+    def remove_tags(self, tag_value: Union[TagValueType, Filter]) -> None:
         """Remove tags qualified by ``tag_value``.
 
         :param tag_value: a *Hashable* tag value, or a *Callable* that checks each tag value if it is qualified
@@ -242,7 +245,7 @@ class TagSpace:
 
     def find_objs(
             self,
-            **kw_tags: Union[TagValueType, TagValueFilter]
+            **kw_tags: Union[TagValueType, Filter]
     ) -> Set[TagObjectType]:
         """Find objects with tag qualified by ``tag_value``.
 
@@ -273,7 +276,7 @@ class TagSpace:
     def remove_tags(
             self,
             *tag_names: TagNameType,
-            **kw_tags: Union[TagValueType, TagValueFilter]
+            **kw_tags: Union[TagValueType, Filter]
     ) -> None:
         """Remove tags with name in ``tag_names``, or with value qualified by ``kw_tags``.
 

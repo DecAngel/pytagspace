@@ -21,6 +21,7 @@ pip install pytagspace
 
 ## Examples
 + Tag objects and find them
+
 ```python
 import pytagspace as pts
 
@@ -36,14 +37,20 @@ print(pts.find_objs(prime=True, info='like'))
 print(pts.find_objs(info='love'))
 # set()  # Empty
 
-# find objects with list as kwargs value
-print(pts.find_objs(prime=True, info=['like', 'dislike']))
+# find objects with value filter
+print(pts.find_objs(
+  prime=True,
+  info=pts.Filter(lambda x: x in ['like', 'dislike'])
+))
 # {2, 5}
-print(pts.find_objs(prime=[1, 2, True]))
+print(pts.find_objs(
+  prime=pts.Filter(lambda x: x in [1, 2, True])
+))
 # {2, 3, 5, 7}
-
-# find objects with function as kwargs value
-print(pts.find_objs(prime=True, info=lambda x: x.endswith('like')))
+print(pts.find_objs(
+  prime=True,
+  info=pts.Filter(lambda x: x.endswith('like'))
+))
 # {2, 5}
 
 # find common tags by objects
@@ -79,7 +86,7 @@ class C2:
 space.tag(func2, return_value=2, is_function=True)
 space.tag(C2, return_value=2, is_function=False)
 
-# find
+# find objects
 for f in space.find_objs(return_value=1):
     print(f())
 # 1, <class C1>
@@ -89,48 +96,56 @@ for f in space.find_objs(is_function=False):
 ```
 
 + Tag removal
+
 ```python
 import pytagspace as pts
 from datetime import timedelta
 from dataclasses import dataclass
 
+
 @dataclass
 class Movie:
-    name: str
-    duration: timedelta
-    year: int
+  name: str
+  duration: timedelta
+  year: int
+
 
 movies = [
-    Movie(
-        name='Thunder Force',
-        duration=timedelta(hours=1, minutes=45), 
-        year=2021
-    ),
-    Movie(
-        name='Once Upon A Time...In Hollywood',
-        duration=timedelta(hours=2, minutes=40),
-        year=2019
-    ),
-    Movie(
-        name='Run',
-        duration=timedelta(hours=1, minutes=39),
-        year=2020
-    )
+  Movie(
+    name='Thunder Force',
+    duration=timedelta(hours=1, minutes=45),
+    year=2021
+  ),
+  Movie(
+    name='Once Upon A Time...In Hollywood',
+    duration=timedelta(hours=2, minutes=40),
+    year=2019
+  ),
+  Movie(
+    name='Run',
+    duration=timedelta(hours=1, minutes=39),
+    year=2020
+  )
 ]
 
 for movie in movies:
   pts.tag(movie, duration=movie.duration, year=movie.year)
 
-print(pts.find_objs(duration=lambda x: x<timedelta(hours=2)))
+print(pts.find_objs(
+  duration=pts.Filter(lambda x: x < timedelta(hours=2))
+))
 # Movies under 2 hours: Thunder Force and Run
 
 pts.remove_objs(movies[0])
-
-print(pts.find_objs(duration=lambda x: x<timedelta(hours=2)))
+print(pts.find_objs(
+  duration=pts.Filter(lambda x: x < timedelta(hours=2))
+))
 # Movies under 2 hours: Run
 
 pts.remove_tags('duration', year=2019)
-print(pts.find_objs(duration=lambda x: x < timedelta(hours=2)))
+print(pts.find_objs(
+  duration=pts.Filter(lambda x: x < timedelta(hours=2))
+))
 # set()  # Empty set
 
 print(pts.find_objs(year=2019))
@@ -140,3 +155,8 @@ print(pts.find_objs(year=2019))
 ## Future improvements
 + Store objects using ``weakref``
 + Store objects that is not hashable(``find_tags`` and ``remove_objs`` will be unavailable) 
+
+## Update notes
+### 1.0.1
++ Rename ``TagValueFilter`` to ``Filter`` for convenience (``TagValueFilter`` is kept for backward compatibility)
++ Update examples in README.md
